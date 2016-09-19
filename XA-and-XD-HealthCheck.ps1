@@ -1,5 +1,5 @@
 #==============================================================================================
-# Created on: 11.2014 Version: 0.99
+# Created on: 11.2014 Version: 0.992
 # Created by: Sacha / sachathomet.ch
 # File name: XA-and-XD-HealthCheck.ps1
 #
@@ -23,9 +23,9 @@ catch { write-error "Error Get-PSSnapin Citrix.Broker.Admin.* Powershell snapin"
 #==============================================================================================
 Set-StrictMode -Version Latest
 
-
 # Define a EnvironmentName e.g. Integration/Production etc. - this will be used in HTML & Email Subject
-$EnvironmentName = "XenApp and XenDesktop 7.x"
+$EnvironmentName = "XenApp and XenDesktop"
+
 # Define the hostnames of delivery controllers, you can use localhost if you run localy
 # Example: $DeliveryControllers = @("CXDC01.domain.tld", "CXDC02.domain.tld")
 $DeliveryControllers = @("localhost")
@@ -63,7 +63,12 @@ $ShowConnectedXenAppUsers = 1
 $loadIndexWarning = 800
 # Set value for a load of a XenApp server that is be critical
 $loadIndexError = 1500
-  
+
+#PVS-Section: If you are using WriteCache to HD
+# Relative path to the PVS vDisk write cache file
+$PvsWriteCache = "d$\.vdiskcache"
+# Size of the local PVS write cache drive
+$PvsWriteMaxSize = 15gb # size in GB
 
 #define the maximum of counted machines (default is only 250)
 $maxmachines = "1000"
@@ -97,6 +102,8 @@ ForEach ($DeliveryController in $DeliveryControllers){
         break
     }
 }
+
+$ReportDate = (Get-Date -format R)
 
 $currentDir = Split-Path $MyInvocation.MyCommand.Path
 $logfile = Join-Path $currentDir ("CTXXDHealthCheck.log")
@@ -975,8 +982,14 @@ else { $allXenAppResults.$machineDNS = $tests }
 else { "XenApp Check skipped because ShowXenAppTable = 0 or Farm is < V7.x " | LogMe -display -progress }
   
 "####################### Check END ####################################################################################" | LogMe -display -progress
-  
+
 # ======= Write all results to an html file =================================================
+# Add Version of XenDesktop to EnvironmentName
+$XDmajor, $XDminor = $controllerversion.Split(".")[0..1]
+$XDVersion = "$XDmajor.$XDminor"
+$EnvironmentName = "$EnvironmentName $XDVersion"
+$emailSubject = ("$EnvironmentName Farm Report - " + $ReportDate)
+
 Write-Host ("Saving results to html report: " + $resultsHTM)
 writeHtmlHeader "$EnvironmentName Farm Report" $resultsHTM
   
@@ -1112,5 +1125,12 @@ $smtpClient.Send( $emailMessage )
 # - Show PowerState and do some checks not on powered off maschone (Ping, RegistrationState)
 # - Show VDA Version of XA or XD
 # - Show Host
+#
+# # Version 0.992
+# Edited on September 2016 by Stefan Beckmann
+# - Variable $EnvironmentName adjusted without version, and joined in the script later
+# - Variable $PvsWriteCache and $PvsWriteMaxSize re-added, since it is still used in the script
+# - Created timestamp report as variable $ReportDate
+# - $EnvironmentName and $emailSubject redefined in the report generation, incl. XenDesktop version with the new variable $XDmajor, $XDminor and $XDVersion
 #
 #=========== History END ===========================================================================
